@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Розклад ФЕІ-16с</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#f1f4f8;--card:#ffffff;--ink:#16202e;--mute:#6b778a;--line:#dde3ec;
+  --lec:#2f5bea;--prs:#1e9e6a;--lab:#d9822b;--now:#e5484d;--accent:#16202e;--accentInk:#ffffff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0e141c;--card:#161e29;--ink:#e8edf4;--mute:#8d9aae;--line:#25303f;--lec:#6f8fff;--prs:#42c590;--lab:#f0a050;--accent:#e8edf4;--accentInk:#0e141c}
+}
+:root[data-theme="dark"]{--bg:#0e141c;--card:#161e29;--ink:#e8edf4;--mute:#8d9aae;--line:#25303f;--lec:#6f8fff;--prs:#42c590;--lab:#f0a050;--accent:#e8edf4;--accentInk:#0e141c}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto;padding:0 12px 28px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px 0 8px}
+h1{font-size:20px;margin:0 0 10px;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:500;color:var(--mute);margin-top:2px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.seg button{border:0;background:none;color:var(--mute);font:inherit;font-weight:600;padding:9px 6px;border-radius:9px;cursor:pointer}
+.seg button small{display:block;font-weight:500;font-size:12px;opacity:.85}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accentInk)}
+.days{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.days button{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;padding:7px 0 6px;border-radius:12px;cursor:pointer;position:relative}
+.days b{display:block;font-size:15px}
+.days span{display:block;font-size:12px;color:var(--mute)}
+.days button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.days button.today::after{content:"";position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--now)}
+button:focus-visible{outline:2px solid var(--lec);outline-offset:2px}
+.slot{display:grid;grid-template-columns:54px 1fr;gap:10px;margin-top:10px}
+.time{text-align:right;padding-top:11px;font-variant-numeric:tabular-nums}
+.time b{display:block;font-size:16px}
+.time span{font-size:12px;color:var(--mute)}
+.items{display:flex;flex-direction:column;gap:6px}
+.item{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;padding:10px 12px}
+.item h3{margin:0;font-size:15.5px;line-height:1.3}
+.meta{margin-top:4px;font-size:13.5px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:12.5px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink)}
+.chip.type{color:var(--c);border-color:var(--c)}
+.empty{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;color:var(--mute);font-size:14px}
+.slot.now .time b{color:var(--now)}
+.slot.now .item,.slot.now .empty{box-shadow:0 0 0 2px var(--now)}
+.slot.past{opacity:.55}
+.free{margin:18px 0 0;padding:16px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Розклад ФЕІ-16с<small id="sub"></small></h1>
+    <div class="seg" id="weeks"></div>
+    <div class="days" id="days"></div>
+  </header>
+  <main id="list"></main>
+</div>
+<script>
+const TG = window.Telegram && window.Telegram.WebApp;
+if (TG) {
+  try {
+    TG.ready(); TG.expand();
+    document.documentElement.setAttribute("data-theme", TG.colorScheme === "dark" ? "dark" : "light");
+    const p = TG.themeParams || {}, s = document.documentElement.style;
+    if (p.bg_color) s.setProperty("--bg", p.bg_color);
+    if (p.secondary_bg_color) s.setProperty("--bg", p.secondary_bg_color);
+    if (p.section_bg_color) s.setProperty("--card", p.section_bg_color);
+    if (p.text_color) { s.setProperty("--ink", p.text_color); s.setProperty("--accent", p.text_color); }
+    if (p.bg_color) s.setProperty("--accentInk", p.bg_color);
+    if (p.hint_color) s.setProperty("--mute", p.hint_color);
+  } catch (e) {}
+}
+
+const SLOTS = [["08:30","09:50"],["10:10","11:30"],["11:50","13:10"],["13:30","14:50"],["15:05","16:25"]];
+const TYPES = {"Л":{n:"Лекція",v:"--lec"},"ПрС":{n:"Практична",v:"--prs"},"Лаб":{n:"Лабораторна",v:"--lab"}};
+const L = (name,type,teacher,room,extra) => ({name,type,teacher,room,extra});
+
+const ENG = [
+  L("Іноземна мова","ПрС","доц. Шандра Наталія Андріївна","406/Т","Збірна група"),
+  L("Іноземна мова","ПрС","доц. Сологуб Лариса В’ячеславівна","312/Т","Збірна група"),
+  L("Іноземна мова","ПрС","асист. Довбенко Лариса Василівна","129а/Т","Збірна група"),
+  L("Іноземна мова","ПрС","доц. Думашівський Ярослав Євгенович","123/Т","Збірна група")
+];
+const SPR = L("Основи національного спротиву",null,"","","");
+const HM_L = L("Вища математика","Л","доц. Цаповська Жаннета Ярославівна","2/Б","Потік");
+const HM_P = L("Вища математика","ПрС","доц. Цаповська Жаннета Ярославівна","3/Б","");
+const DM_L = L("Дискретна математика","Л","доц. Вельгош Сергій Романович","128/Т","Потік");
+const OKS_L = L("Основи організації комп’ютерних систем","Л","зав. каф. Бордун Олег Михайлович","2/Б","Потік");
+const AP_L = L("Алгоритмізація та програмування","Л","доц. Хвищун Іван Олександрович","128/Т","Потік");
+const OKS_LAB = g => L("Основи організації комп’ютерних систем","Лаб","асист. Коплак Ольга Михайлівна","405/Б","підгр. "+g);
+const AP_LAB = g => L("Алгоритмізація та програмування","Лаб","доц. Хвищун Іван Олександрович","№6/Т","підгр. "+g);
+const DM_LAB = g => L("Дискретна математика","Лаб","асист. Шмигельський Ярослав Антонович","324/Т","підгр. "+g);
+
+const WED = [[],ENG,[HM_L],[],[]];
+const THU = [[],[OKS_LAB(1)],[AP_LAB(1),DM_LAB(2)],[DM_LAB(1),AP_LAB(2)],[OKS_LAB(2)]];
+const FRI = [[],[],[HM_L],[HM_P],[HM_P]];
+
+const WEEKS = [
+  { title:"Тиждень 1", range:"23.11 – 28.11", dates:["23.11","24.11","25.11","26.11","27.11"],
+    days:[
+      [[],[DM_L],[L("Філософія","Л","доц. Лосик Ореста Миколаївна","2/Б","Потік")],[OKS_L],[]],
+      [[L("Історія України. Історія української культури","ПрС","асист. Дністрянський Тарас Мирославович","5/Б","")],[SPR],ENG,[AP_L],[]],
+      WED, THU, FRI
+    ]},
+  { title:"Тиждень 2", range:"30.11 – 06.12", dates:["30.11","01.12","02.12","03.12","04.12"],
+    days:[
+      [[],[DM_L],[L("Філософія","ПрС","доц. Бартусяк Павло Миколайович","5/Б","")],[OKS_L],[]],
+      [[L("Історія України. Історія української культури","Л","доц. Середяк Алла Володимирівна","2/Б","Потік")],[SPR],ENG,[AP_L],[]],
+      WED, THU, FRI
+    ]}
+];
+const DAYNAMES = ["Пн","Вт","Ср","Чт","Пт"];
+const START = new Date(2026, 10, 23); // понеділок тижня 1
+
+function today() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function weekIndexOf(d) { const w = Math.floor((d - START) / 864e5 / 7); return ((w % 2) + 2) % 2; }
+
+const now = new Date();
+const dow = (now.getDay() + 6) % 7;            // 0 = Пн
+const weekend = dow > 4;
+const curWeek = weekIndexOf(today());
+let wk = weekend ? (curWeek + 1) % 2 : curWeek;
+let dy = weekend ? 0 : dow;
+
+const el = id => document.getElementById(id);
+const tm = s => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+
+function renderWeeks() {
+  el("weeks").innerHTML = WEEKS.map((w, i) =>
+    `<button type="button" aria-pressed="${i === wk}" data-w="${i}">${w.title}<small>${w.range}</small></button>`).join("");
+  el("weeks").querySelectorAll("button").forEach(b => b.onclick = () => { wk = +b.dataset.w; render(); });
+}
+function renderDays() {
+  const isCur = wk === curWeek;
+  el("days").innerHTML = WEEKS[wk].dates.map((d, i) =>
+    `<button type="button" aria-pressed="${i === dy}" data-d="${i}" class="${isCur && i === dow && !weekend ? "today" : ""}"><b>${DAYNAMES[i]}</b><span>${d}</span></button>`).join("");
+  el("days").querySelectorAll("button").forEach(b => b.onclick = () => { dy = +b.dataset.d; render(); });
+}
+function card(l) {
+  const t = l.type ? TYPES[l.type] : null;
+  const c = t ? `var(${t.v})` : "var(--mute)";
+  const chips = [t ? `<span class="chip type">${t.n}</span>` : "", l.room ? `<span class="chip">${l.room}</span>` : "", l.extra ? `<span class="chip">${l.extra}</span>` : ""].join("");
+  return `<div class="item" style="--c:${c}"><h3>${l.name}</h3>${l.teacher ? `<div class="meta">${l.teacher}</div>` : ""}${chips ? `<div class="chips">${chips}</div>` : ""}</div>`;
+}
+function renderList() {
+  const day = WEEKS[wk].days[dy];
+  const isToday = wk === curWeek && dy === dow && !weekend;
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (day.every(s => !s.length)) { el("list").innerHTML = `<div class="free">Пар немає</div>`; return; }
+  el("list").innerHTML = day.map((items, i) => {
+    const [a, b] = SLOTS[i];
+    let cls = "slot";
+    if (isToday && mins >= tm(a) && mins <= tm(b)) cls += " now";
+    else if (isToday && mins > tm(b)) cls += " past";
+    const body = items.length ? `<div class="items">${items.map(card).join("")}</div>` : `<div class="empty">Вікно</div>`;
+    return `<section class="${cls}"><div class="time"><b>${a}</b><span>${b}</span></div>${body}</section>`.replace("<section", "<div").replace("</section>", "</div>");
+  }).join("");
+}
+function render() {
+  el("sub").textContent = (wk === curWeek ? "Поточний тиждень: " : "Тиждень: ") + WEEKS[wk].range;
+  renderWeeks(); renderDays(); renderList();
+}
+render();
+</script>
+</body>
+</html>
